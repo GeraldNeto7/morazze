@@ -1,0 +1,149 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+enum Role {
+  SUPERADMIN
+  SINDICO
+  CONDOMINO
+}
+
+enum ChargeStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model Condominium {
+  id         String   @id @default(uuid())
+  name       String
+  cnpj       String?
+  address    String?
+  plan       String?
+  createdAt  DateTime @default(now())
+
+  users         User[]
+  units         Unit[]
+  charges       Charge[]
+  commonAreas   CommonArea[]
+  reservations  Reservation[]
+  announcements Announcement[]
+}
+
+model User {
+  id             String       @id @default(uuid()) // Syncs with Supabase auth uuid
+  condominiumId  String?
+  condominium    Condominium? @relation(fields: [condominiumId], references: [id])
+  name           String
+  email          String       @unique
+  cpfCnpj        String?      @unique
+  phone          String?
+  asaasCustomerId String?     @unique
+  role           Role         @default(CONDOMINO)
+  createdAt      DateTime     @default(now())
+
+  units             Unit[]
+  announcements     Announcement[]     @relation("CreatedAnnouncements")
+  announcementReads AnnouncementRead[]
+}
+
+model Unit {
+  id             String      @id @default(uuid())
+  condominiumId  String
+  condominium    Condominium @relation(fields: [condominiumId], references: [id])
+  block          String?
+  number         String
+  userId         String?
+  user           User?       @relation(fields: [userId], references: [id])
+
+  charges      Charge[]
+  reservations Reservation[]
+
+  @@unique([condominiumId, block, number]) // Garante que a unidade seja única
+}
+
+model Charge {
+  id             String       @id @default(uuid())
+  condominiumId  String
+  condominium    Condominium  @relation(fields: [condominiumId], references: [id])
+  unitId         String
+  unit           Unit         @relation(fields: [unitId], references: [id])
+  amount         Decimal      @db.Decimal(10, 2)
+  dueDate        DateTime     @db.Date
+  status         ChargeStatus @default(PENDING)
+  asaasChargeId  String?
+  paymentMethod  String?
+  paidAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  reservations Reservation[]
+}
+
+model CommonArea {
+  id             String      @id @default(uuid())
+  condominiumId  String
+  condominium    Condominium @relation(fields: [condominiumId], references: [id])
+  name           String
+  description    String?
+  capacity       Int?
+  rules          String?
+  fee            Decimal?    @db.Decimal(10, 2)
+  active         Boolean     @default(true)
+
+  reservations Reservation[]
+}
+
+model Reservation {
+  id             String            @id @default(uuid())
+  condominiumId  String
+  condominium    Condominium       @relation(fields: [condominiumId], references: [id])
+  unitId         String
+  unit           Unit              @relation(fields: [unitId], references: [id])
+  commonAreaId   String
+  commonArea     CommonArea        @relation(fields: [commonAreaId], references: [id])
+  date           DateTime          @db.Date
+  startTime      String            // e.g. "14:00"
+  endTime        String            // e.g. "18:00"
+  status         ReservationStatus @default(PENDING)
+  chargeId       String?
+  charge         Charge?           @relation(fields: [chargeId], references: [id])
+  notes          String?
+  createdAt      DateTime          @default(now())
+}
+
+model Announcement {
+  id             String      @id @default(uuid())
+  condominiumId  String
+  condominium    Condominium @relation(fields: [condominiumId], references: [id])
+  title          String
+  body           String
+  imageUrl       String?
+  fileUrl        String?
+  publishedAt    DateTime    @default(now())
+  createdBy      String
+  author         User        @relation("CreatedAnnouncements", fields: [createdBy], references: [id])
+  createdAt      DateTime    @default(now())
+
+  reads AnnouncementRead[]
+}
+
+model AnnouncementRead {
+  id              String       @id @default(uuid())
+  announcementId  String
+  announcement    Announcement @relation(fields: [announcementId], references: [id])
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  readAt          DateTime     @default(now())
+
+  @@unique([announcementId, userId])
+}
