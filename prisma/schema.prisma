@@ -81,7 +81,10 @@ model Charge {
   amount         Decimal      @db.Decimal(10, 2)
   dueDate        DateTime     @db.Date
   status         ChargeStatus @default(PENDING)
+  description    String?
   asaasChargeId  String?
+  invoiceUrl     String?
+  bankSlipUrl    String?
   paymentMethod  String?
   paidAt         DateTime?
   createdAt      DateTime     @default(now())
